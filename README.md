@@ -1,10 +1,12 @@
-<p align="center"><img src="public/og.svg" alt="FieldPilot — Less admin. More good work." width="100%" /></p>
-
 # FieldPilot
+
+[**Open live demo**](https://fieldpilot-pied.vercel.app) · [Verification record](docs/verification.md) · [Source & architecture](docs/architecture.md)
 
 A working renovation operations dashboard, built by [Tanveer Singh](https://singhtanveer.com). Create a customer, prepare an estimate, approve it into a scheduled job, move the job through completion, issue an invoice and record payment. Every overview metric comes from those records.
 
 **This is a portfolio demo with synthetic Australian customer data and illustrative AUD prices. No emails, payment requests or real transactions are sent.**
+
+![Live FieldPilot workspace](docs/preview.jpg)
 
 ## What works
 
@@ -44,16 +46,16 @@ The backend requires the `portfolio_demo_workspaces` table and `portfolio_demo_c
 
 ## Architecture
 
-| Layer | Responsibility |
-| --- | --- |
-| `src/App.tsx` | Navigation, server state, views, command and optional speech controls |
-| `src/components.tsx` | Accessible native dialogs, customer form, estimate review and document details |
-| `src/domain.ts` | Shared types, synthetic seed, totals, validated reducer and side-effect-free parser |
-| `api/workspace.ts` | FieldPilot configuration for the shared Node workspace adapter |
-| `api/_lib/workspace.ts` | HTTP boundary, method/auth/body validation and consistent errors |
-| `api/_lib/store.ts` | Capability-scoped durable storage and optimistic concurrency |
-| `vite.config.ts` | React tooling and clearly labelled development-only API |
-| `tests/domain.test.ts` | Real domain behavior tests |
+| Layer                   | Responsibility                                                                      |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| `src/App.tsx`           | Navigation, server state, views, command and optional speech controls               |
+| `src/components.tsx`    | Accessible native dialogs, customer form, estimate review and document details      |
+| `src/domain.ts`         | Shared types, synthetic seed, totals, validated reducer and side-effect-free parser |
+| `api/workspace.ts`      | FieldPilot configuration for the shared Node workspace adapter                      |
+| `api/_lib/workspace.ts` | HTTP boundary, method/auth/body validation and consistent errors                    |
+| `api/_lib/store.ts`     | Capability-scoped durable storage and optimistic concurrency                        |
+| `vite.config.ts`        | React tooling and clearly labelled development-only API                             |
+| `tests/domain.test.ts`  | Real domain behavior tests                                                          |
 
 ## Deliberate limits
 

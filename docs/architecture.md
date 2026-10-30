@@ -12,14 +12,14 @@ The browser stores the capability and a creation timestamp in localStorage. A ca
 
 Supported commands:
 
-| Type | Payload | Preconditions |
-| --- | --- | --- |
-| `create_customer` | `name`, `email`, `phone`, `address` | Required bounded strings, valid email, capacity available |
-| `create_estimate` | `customerId`, `title`, `items`, `taxRate`, `date` | Existing customer, valid cents/prices, real ISO date |
-| `approve_estimate` | `id` | Draft estimate; creates a scheduled job |
-| `move_job` | `id`, `status` | Scheduled → in_progress → completed only |
-| `create_invoice` | `jobId` | Completed job, no existing invoice |
-| `pay_invoice` | `id` | Existing unpaid invoice |
+| Type               | Payload                                           | Preconditions                                             |
+| ------------------ | ------------------------------------------------- | --------------------------------------------------------- |
+| `create_customer`  | `name`, `email`, `phone`, `address`               | Required bounded strings, valid email, capacity available |
+| `create_estimate`  | `customerId`, `title`, `items`, `taxRate`, `date` | Existing customer, valid cents/prices, real ISO date      |
+| `approve_estimate` | `id`                                              | Draft estimate; creates a scheduled job                   |
+| `move_job`         | `id`, `status`                                    | Scheduled → in_progress → completed only                  |
+| `create_invoice`   | `jobId`                                           | Completed job, no existing invoice                        |
+| `pay_invoice`      | `id`                                              | Existing unpaid invoice                                   |
 
 The reducer clones the original state, validates inputs, applies a change and appends a bounded activity entry. A rejected operation cannot partially change the source state. The persistence adapter uses compare-and-swap revision checks and retries to avoid lost writes; duplicate approval, duplicate invoice and duplicate payment commands remain rejected on retry.
 
