@@ -6,7 +6,6 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   Check,
-  CheckCheck,
   ChevronRight,
   CircleHelp,
   ClipboardList,
@@ -16,16 +15,12 @@ import {
   Hammer,
   LayoutDashboard,
   Leaf,
-  ListFilter,
   LoaderCircle,
   MapPin,
   Mic,
-  MoreHorizontal,
   Plus,
   Search,
-  Settings2,
   ShieldCheck,
-  Sparkles,
   Users,
   Wallet,
   X,
@@ -41,6 +36,7 @@ import {
   type Invoice,
 } from './domain';
 import { Modal, EstimateForm, CustomerForm, DocumentDetail } from './components';
+import { can, currentAccess, handleAccessResponse, withWorkspaceAccess } from './access/access';
 const navigation = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'jobs', label: 'Jobs', icon: BriefcaseBusiness },
@@ -76,14 +72,19 @@ function getToken() {
   return token;
 }
 async function api(command?: Record<string, unknown>) {
-  const response = await fetch('/api/workspace', {
-    method: command ? 'POST' : 'GET',
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-      ...(command ? { 'Content-Type': 'application/json' } : {}),
-    },
-    ...(command ? { body: JSON.stringify({ command }) } : {}),
-  });
+  const response = handleAccessResponse(
+    await fetch(
+      '/api/workspace',
+      withWorkspaceAccess({
+        method: command ? 'POST' : 'GET',
+        headers: {
+          ...(currentAccess().mode === 'demo' ? { Authorization: `Bearer ${getToken()}` } : {}),
+          ...(command ? { 'Content-Type': 'application/json' } : {}),
+        },
+        ...(command ? { body: JSON.stringify({ command }) } : {}),
+      }),
+    ),
+  );
   let body;
   try {
     body = await response.json();
@@ -132,6 +133,7 @@ const defaultProposal = (customerId = ''): Proposal => ({
   items: [{ description: '', quantity: 1, unitCents: 0 }],
 });
 export default function App() {
+  const access = currentAccess();
   const [state, setState] = useState<Workspace | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(''),
@@ -178,6 +180,7 @@ export default function App() {
     return () => clearTimeout(id);
   }, [toast]);
   const act = async (cmd: Record<string, unknown>, message = 'Workspace updated') => {
+    if (!can(String(cmd.type))) throw new Error('Your workspace role does not permit this change.');
     setBusy(true);
     setError('');
     try {
@@ -302,7 +305,8 @@ export default function App() {
                 </span>
               ) : (
                 <button
-                  disabled={busy}
+                  disabled={busy || !can('create_invoice')}
+                  title={!can('create_invoice') ? 'Requires manager or owner access' : undefined}
                   className="text-button"
                   onClick={() =>
                     safeAct(
@@ -317,7 +321,8 @@ export default function App() {
               )
             ) : (
               <button
-                disabled={busy}
+                disabled={busy || !can('move_job')}
+                title={!can('move_job') ? 'Your role can only view jobs' : undefined}
                 className="text-button"
                 onClick={() =>
                   safeAct(
@@ -360,8 +365,8 @@ export default function App() {
             <Hammer size={19} />
           </span>
           <div>
-            <strong>Oak & Co. Renovations</strong>
-            <small>Demo workspace</small>
+            <strong>Renovation operations</strong>
+            <small>FieldPilot workspace</small>
           </div>
           <span className="workspace-indicator" />
         </div>
@@ -380,43 +385,21 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-note">
-          <div className="note-icon">
-            <Sparkles size={20} />
-          </div>
-          <strong>
-            A little less admin.
-            <br />A lot more good work.
-          </strong>
-          <p>Your next project starts with a simple estimate.</p>
-          <button
-            onClick={() => setProposal(defaultProposal(state?.customers[0]?.id))}
-            disabled={!state}
-          >
-            Create an estimate
-            <ArrowUpRight size={15} />
-          </button>
-        </div>
         <div className="sidebar-bottom">
           <button onClick={() => setInfo(true)}>
             <CircleHelp size={18} />
-            How this demo works
+            Workflow guide
             <ArrowUpRight size={14} />
           </button>
-          <div className="profile">
-            <div className="profile-avatar">TS</div>
-            <div>
-              <strong>Tanveer Singh</strong>
-              <small>Portfolio project</small>
-            </div>
-            <button
-              className="icon-button"
-              aria-label="About this project"
-              onClick={() => setInfo(true)}
-            >
-              <Settings2 size={18} />
-            </button>
-          </div>
+          <a
+            className="project-credit"
+            href="https://singhtanveer.com"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Portfolio by Tanveer Singh
+            <ArrowUpRight size={14} />
+          </a>
         </div>
       </aside>
       <div className="main-shell">
@@ -426,28 +409,32 @@ export default function App() {
             <strong>{navigation.find((n) => n.id === page)?.label.toUpperCase()}</strong>
           </div>
           <div className="topbar-right">
-            <span className="live-dot" />
-            Demo workspace
-            <button
-              className="icon-button"
-              aria-label="About FieldPilot"
-              onClick={() => setInfo(true)}
-            >
-              <CircleHelp size={19} />
+            <button className="button secondary" onClick={() => setInfo(true)}>
+              <CircleHelp size={18} />
+              Workflow guide
             </button>
-            <div className="top-avatar">TS</div>
           </div>
         </header>
         <main>
           <div className="demo-banner">
             <ShieldCheck size={14} />
-            <span>Synthetic demo data · No real customers or payments</span>
-            {import.meta.env.DEV && <strong>Local development · in-memory</strong>}
+            <span>Sample records are synthetic. No emails or payments are sent.</span>
+
             <a href="https://singhtanveer.com" target="_blank" rel="noreferrer">
               Built by Tanveer
               <ArrowUpRight size={12} />
             </a>
           </div>
+          {access.mode === 'account' && (access.role === 'viewer' || access.role === 'staff') && (
+            <div className="role-notice">
+              <ShieldCheck size={18} />
+              <span>
+                {access.role === 'viewer'
+                  ? 'Viewer access: you can view records. Ask an owner to change your role if you need to make updates.'
+                  : 'Staff access: you can start and complete jobs. Customer, estimate and invoice changes require a manager or owner.'}
+              </span>
+            </div>
+          )}
           {error && (
             <div className="error-banner" role="alert">
               <span>{error}</span>
@@ -467,7 +454,7 @@ export default function App() {
             <div className="loading-state">
               <LoaderCircle className="spin" size={28} />
               <h2>Getting your workspace ready</h2>
-              <p>Connecting to your saved demo records…</p>
+              <p>Connecting to your workspace…</p>
             </div>
           ) : !state ? (
             <div className="empty-state">
@@ -484,91 +471,20 @@ export default function App() {
                 <>
                   <section className="page-title">
                     <div>
-                      <p className="eyebrow">A CLEAR VIEW. A BETTER DAY.</p>
-                      <h1>
-                        Let’s get to good work<span className="orange-dot">.</span>
-                      </h1>
-                      <p>Here’s what’s happening at Oak & Co.</p>
+                      <h1>Overview</h1>
+                      <p>Track active work, estimates and invoice balances.</p>
                     </div>
                     <button
                       className="button primary"
+                      disabled={!can('create_estimate')}
+                      title={
+                        !can('create_estimate') ? 'Requires manager or owner access' : undefined
+                      }
                       onClick={() => setProposal(defaultProposal(state.customers[0]?.id))}
                     >
                       <Plus size={17} />
                       Create estimate
                     </button>
-                  </section>
-                  <section className="hero-panel">
-                    <div className="hero-copy">
-                      <span className="hero-tag">
-                        <span />
-                        YOUR BUSINESS, IN SYNC
-                      </span>
-                      <h2>
-                        Less paperwork.
-                        <br />
-                        More possibilities.
-                      </h2>
-                      <p>
-                        Keep your team moving and your customers smiling.
-                        <br className="desktop-break" /> Every detail, from the first quote to the
-                        final coat.
-                      </p>
-                      <button onClick={() => nav('jobs')}>
-                        See your job board
-                        <ArrowUpRight size={16} />
-                      </button>
-                    </div>
-                    <div className="hero-art" aria-hidden="true">
-                      <svg viewBox="0 0 420 265" fill="none">
-                        <path
-                          d="M25 218h360M65 192h320M80 166h305M95 140h290M110 114h275M125 88h260M140 62h245"
-                          stroke="#ffffff"
-                          opacity=".07"
-                        />
-                        <path
-                          d="M85 237 245 21M125 237 285 21M165 237 325 21M205 237 365 21M245 237 405 21"
-                          stroke="#ffffff"
-                          opacity=".07"
-                        />
-                        <path
-                          d="m92 129 115-69 117 67-116 70-116-68Z"
-                          fill="#375e48"
-                          stroke="#6c8c70"
-                        />
-                        <path d="m92 129 116 68v59L92 188v-59Z" fill="#557357" />
-                        <path d="m208 197 116-70v60l-116 69v-59Z" fill="#294d3b" />
-                        <path d="m92 128 61-93 116 68-61 94-116-69Z" fill="#d6d3b6" />
-                        <path d="m153 35 54 25 117 67-55-24-116-68Z" fill="#a8b398" />
-                        <path d="m153 35 116 68 55 24-116-69-55-23Z" fill="#e9e1c5" />
-                        <path d="m163 164 24 14v43l-24-14v-43Z" fill="#2f503e" stroke="#a8b398" />
-                        <path d="m111 145 27 16v24l-27-16v-24Z" fill="#bdd1b5" />
-                        <path
-                          d="m234 194 28-17v27l-28 17v-27ZM281 166l25-15v27l-25 15v-27Z"
-                          fill="#adbe9c"
-                        />
-                        <path d="m122 151 0 25M247 186v26M293 159v25" stroke="#638268" />
-                        <path d="m233 82 0-31 20 12v31" fill="#dfd6b4" />
-                        <path d="m253 63 12-7v31l-12 7" fill="#a7af93" />
-                        <path d="m233 51 12-7 20 12-12 7-20-12Z" fill="#ece4c9" />
-                        <path d="M347 189v-63" stroke="#69876b" stroke-width="4" />
-                        <ellipse cx="347" cy="122" rx="24" ry="34" fill="#55775b" />
-                        <path d="m337 122 10 12 12-20" stroke="#91aa83" stroke-width="2" />
-                        <path d="M61 204v-44" stroke="#69876b" stroke-width="3" />
-                        <ellipse cx="61" cy="154" rx="18" ry="25" fill="#668362" />
-                        <circle cx="324" cy="53" r="20" fill="#eb9c58" />
-                        <path d="m315 53 6 6 11-13" stroke="#294a36" stroke-width="2.5" />
-                      </svg>
-                      <div className="art-floating">
-                        <span className="art-check">
-                          <Check size={14} />
-                        </span>
-                        <div>
-                          <strong>Good work, all connected.</strong>
-                          <small>From estimate to paid.</small>
-                        </div>
-                      </div>
-                    </div>
                   </section>
                   <section className="metrics" aria-label="Workspace metrics">
                     {[
@@ -631,71 +547,72 @@ export default function App() {
                       </button>
                     ))}
                   </section>
-                  <section className="command-panel">
-                    <div className="command-title">
-                      <span className="command-icon">
-                        <Command size={19} />
-                      </span>
-                      <div>
-                        <h3>Your next estimate starts here.</h3>
-                        <p>Type a command. Review the details. You’re in control.</p>
+                  {can('create_estimate') && (
+                    <section className="command-panel">
+                      <div className="command-title">
+                        <span className="command-icon">
+                          <Command size={19} />
+                        </span>
+                        <div>
+                          <h3>Create an estimate from a command</h3>
+                          <p>Proposed details are editable. Confirm to save.</p>
+                        </div>
+                        <span className="beta-pill">RULE-BASED</span>
                       </div>
-                      <span className="beta-pill">RULE-BASED ASSISTANT</span>
-                    </div>
-                    <form className="command-form" onSubmit={preview}>
-                      <Sparkles size={18} />
-                      <input
-                        aria-label="Estimate command"
-                        value={command}
-                        onChange={(e) => setCommand(e.target.value)}
-                        placeholder="Create a painting estimate for Alex Morgan"
-                      />
-                      <button
-                        type="button"
-                        className={`mic-button ${listening ? 'listening' : ''}`}
-                        onClick={listen}
-                        disabled={!Speech}
-                        aria-label={
-                          listening
-                            ? 'Stop listening'
-                            : Speech
-                              ? 'Use browser speech recognition'
-                              : 'Browser speech recognition unavailable'
-                        }
-                        title={
-                          Speech
-                            ? 'Browser speech recognition'
-                            : 'Speech recognition is not supported in this browser'
-                        }
-                      >
-                        <Mic size={18} />
-                      </button>
-                      <button className="button dark" type="submit">
-                        Preview estimate
-                        <ArrowRight size={15} />
-                      </button>
-                    </form>
-                    <p className="command-caption">
-                      {listening
-                        ? 'Listening… speak your estimate command.'
-                        : Speech
-                          ? 'Optional browser speech recognition · Microphone permission required · Always previewed before saving.'
-                          : 'Browser speech is unavailable here. Typed commands work in every browser.'}
-                    </p>
-                    {commandError && (
-                      <p className="form-error" role="alert">
-                        {commandError}
+                      <form className="command-form" onSubmit={preview}>
+                        <input
+                          aria-label="Estimate command"
+                          value={command}
+                          onChange={(e) => setCommand(e.target.value)}
+                          placeholder="Create a painting estimate for Alex Morgan"
+                        />
+                        <button
+                          type="button"
+                          className={`mic-button ${listening ? 'listening' : ''}`}
+                          onClick={listen}
+                          disabled={!Speech}
+                          aria-label={
+                            listening
+                              ? 'Stop listening'
+                              : Speech
+                                ? 'Use browser speech recognition'
+                                : 'Browser speech recognition unavailable'
+                          }
+                          title={
+                            Speech
+                              ? 'Browser speech recognition'
+                              : 'Speech recognition is not supported in this browser'
+                          }
+                        >
+                          <Mic size={18} />
+                        </button>
+                        <button className="button dark" type="submit">
+                          Preview estimate
+                          <ArrowRight size={15} />
+                        </button>
+                      </form>
+                      <p className="command-caption">
+                        {listening
+                          ? 'Listening… speak your estimate command.'
+                          : Speech
+                            ? 'Optional browser speech recognition · Microphone permission required · Always previewed before saving.'
+                            : 'Browser speech is unavailable here. Typed commands work in every browser.'}
                       </p>
-                    )}
-                  </section>
+                      {commandError && (
+                        <p className="form-error" role="alert">
+                          {commandError}
+                        </p>
+                      )}
+                    </section>
+                  )}
                   <section className="dashboard-lower">
                     <div className="panel upcoming-panel">
                       <div className="panel-heading">
                         <div>
                           <h2>
-                            On the job board <span>{active.length}</span>
+                            Active jobs <span>{active.length}</span>
                           </h2>
-                          <p>A little planning goes a long way.</p>
+                          <p>Scheduled and in-progress work.</p>
                         </div>
                         <button className="text-button" onClick={() => nav('jobs')}>
                           View all jobs
@@ -734,7 +651,7 @@ export default function App() {
                       <div className="panel-heading">
                         <div>
                           <h2>Recent activity</h2>
-                          <p>The small wins add up.</p>
+                          <p>Recent workspace changes.</p>
                         </div>
                         <Clock3 size={17} />
                       </div>
@@ -769,14 +686,15 @@ export default function App() {
                 <>
                   <section className="page-title">
                     <div>
-                      <p className="eyebrow">FROM PLANNED TO PROUDLY FINISHED</p>
-                      <h1>
-                        A place for every project<span className="orange-dot">.</span>
-                      </h1>
-                      <p>Move work forward, one good job at a time.</p>
+                      <h1>Jobs</h1>
+                      <p>Start scheduled work, complete jobs and create invoices.</p>
                     </div>
                     <button
                       className="button primary"
+                      disabled={!can('create_estimate')}
+                      title={
+                        !can('create_estimate') ? 'Requires manager or owner access' : undefined
+                      }
                       onClick={() => setProposal(defaultProposal(state.customers[0]?.id))}
                     >
                       <Plus size={17} />
@@ -843,13 +761,20 @@ export default function App() {
                 <>
                   <section className="page-title">
                     <div>
-                      <p className="eyebrow">GOOD RELATIONSHIPS, ALL IN ONE PLACE</p>
-                      <h1>
-                        The people behind the projects<span className="orange-dot">.</span>
-                      </h1>
-                      <p>{state.customers.length} synthetic customers in your workspace.</p>
+                      <h1>Customers</h1>
+                      <p>
+                        {state.customers.length} customer records. Search or add a customer to
+                        prepare an estimate.
+                      </p>
                     </div>
-                    <button className="button primary" onClick={() => setNewCustomer(true)}>
+                    <button
+                      className="button primary"
+                      disabled={!can('create_customer')}
+                      title={
+                        !can('create_customer') ? 'Requires manager or owner access' : undefined
+                      }
+                      onClick={() => setNewCustomer(true)}
+                    >
                       <Plus size={17} />
                       Add customer
                     </button>
@@ -893,6 +818,12 @@ export default function App() {
                             </div>
                             <button
                               className="text-button"
+                              disabled={!can('create_estimate')}
+                              title={
+                                !can('create_estimate')
+                                  ? 'Requires manager or owner access'
+                                  : undefined
+                              }
                               onClick={() => setProposal(defaultProposal(c.id))}
                             >
                               Create estimate
@@ -917,14 +848,15 @@ export default function App() {
                 <>
                   <section className="page-title">
                     <div>
-                      <p className="eyebrow">CLEAR SCOPE. CONFIDENT NEXT STEPS.</p>
-                      <h1>
-                        From first quote to final payment<span className="orange-dot">.</span>
-                      </h1>
+                      <h1>Estimates & invoices</h1>
                       <p>Review estimates, schedule approved work and track invoices.</p>
                     </div>
                     <button
                       className="button primary"
+                      disabled={!can('create_estimate')}
+                      title={
+                        !can('create_estimate') ? 'Requires manager or owner access' : undefined
+                      }
                       onClick={() => setProposal(defaultProposal(state.customers[0]?.id))}
                     >
                       <Plus size={17} />
@@ -1053,7 +985,7 @@ export default function App() {
           <footer className="page-footer">
             <span>
               <Leaf size={13} />
-              Made for the work that matters.
+              Renovation operations
             </span>
             <span>
               FieldPilot · Portfolio MVP{' '}
@@ -1080,7 +1012,7 @@ export default function App() {
           </button>
         </div>
       )}
-      {proposal && state && (
+      {proposal && state && can('create_estimate') && (
         <EstimateForm
           proposal={proposal}
           customers={state.customers}
@@ -1097,7 +1029,7 @@ export default function App() {
           }}
         />
       )}
-      {newCustomer && (
+      {newCustomer && can('create_customer') && (
         <CustomerForm
           busy={busy}
           onClose={() => setNewCustomer(false)}
@@ -1119,14 +1051,15 @@ export default function App() {
       )}
       {info && (
         <Modal
-          title="Good work, all connected."
+          title="FieldPilot workflow guide"
           subtitle="FieldPilot · A full-stack portfolio project by Tanveer Singh"
           onClose={() => setInfo(false)}
         >
           <div className="info-content">
             <p>
               Explore a working renovation operations flow with synthetic Australian sample records.
-              Your browser gets its own saved workspace.
+              Account workspaces are shared with invited members. Try Demo uses a separate browser
+              workspace.
             </p>
             <ol>
               <li>Add a customer, then create an estimate with editable scope and prices.</li>
@@ -1141,10 +1074,10 @@ export default function App() {
               your browser’s recognition service and requires microphone permission.
             </p>
             <p className="info-small">
-              Demo only: no real customers, emails, payment processing, crew scheduling service or
-              AI model. Workspace access uses a random token stored in this browser; clearing
-              browser storage creates a new workspace. Demo workspaces expire after seven days; this
-              browser starts a fresh demo after six days.
+              Sample data is synthetic. No emails, payment processing or AI model is connected.
+              Account roles control access: owners manage the team, managers manage records, staff
+              update job status, and viewers read records. Demo workspaces use a browser token and
+              expire after seven days.
             </p>
             <a
               className="button dark"

@@ -1,3 +1,4 @@
+import { can } from './access/access';
 import { useEffect, useRef, useState, type ReactNode, type FormEvent } from 'react';
 import { Plus, Trash2, X, ArrowUpRight, Check } from 'lucide-react';
 import {
@@ -79,7 +80,7 @@ export function EstimateForm({
   return (
     <Modal
       title="Review your estimate"
-      subtitle="Nothing is saved until you confirm. All prices are in AUD."
+      subtitle="Review scope, quantities and prices before saving. Currency: AUD."
       onClose={onClose}
       wide
     >
@@ -277,8 +278,8 @@ export function CustomerForm({
   };
   return (
     <Modal
-      title="A new connection"
-      subtitle="Add a synthetic customer to your demo workspace."
+      title="Add customer"
+      subtitle="Add contact and site details for estimates and jobs."
       onClose={onClose}
     >
       <form onSubmit={submit}>
@@ -433,12 +434,13 @@ export function DocumentDetail({
         <button className="button secondary" onClick={onClose}>
           Close
         </button>
-        {(doc.status === 'draft' || doc.status === 'unpaid') && (
-          <button className="button primary" onClick={act} disabled={busy}>
-            {busy ? 'Saving…' : kind === 'estimate' ? 'Approve & schedule job' : 'Mark as paid'}
-            <Check size={16} />
-          </button>
-        )}
+        {(doc.status === 'draft' || doc.status === 'unpaid') &&
+          can(kind === 'estimate' ? 'approve_estimate' : 'pay_invoice') && (
+            <button className="button primary" onClick={act} disabled={busy}>
+              {busy ? 'Saving…' : kind === 'estimate' ? 'Approve & schedule job' : 'Mark as paid'}
+              <Check size={16} />
+            </button>
+          )}
       </div>
     </Modal>
   );

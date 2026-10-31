@@ -6,7 +6,22 @@ A working renovation operations dashboard, built by [Tanveer Singh](https://sing
 
 **This is a portfolio demo with synthetic Australian customer data and illustrative AUD prices. No emails, payment requests or real transactions are sent.**
 
-![Live FieldPilot workspace](docs/preview.jpg)
+The current interface uses neutral surfaces, readable operational tables and role-aware controls. Screenshots in the historical verification record may show the earlier visual design.
+
+## Accounts and access
+
+Sign in or sign up with email and password, then create or select an account workspace. Signup may require email confirmation depending on the configured Supabase project. **Try Demo** opens a separate browser demo without an account. New account workspaces also start with labelled synthetic records.
+
+Owners can invite members by email, change permitted roles and remove members. The owner is assigned when a workspace is created. Invitations do not send an application email; the intended member signs in with the invited email.
+
+| Role               | Permissions                                    |
+| ------------------ | ---------------------------------------------- |
+| Owner              | Manage team and all business records           |
+| Manager (`editor`) | Manage customers, estimates, jobs and invoices |
+| Staff              | Read records and start/complete jobs           |
+| Viewer             | Read records                                   |
+
+Account sessions use HttpOnly cookies; account tokens are not stored in browser JavaScript. Workspace membership and commands are independently checked by the backend, in addition to role-aware controls.
 
 ## What works
 
@@ -28,21 +43,22 @@ npm ci
 npm run dev
 ```
 
-Open **http://127.0.0.1:5102**. Development uses a Vite middleware with isolated, in-memory workspaces. The page labels this mode explicitly. Restarting the development server clears those records. The production bundle never uses this local middleware.
+Open **http://127.0.0.1:5102**. Set the server-only Supabase variables from `.env.example` in `.env.local` and apply the supplied demo and account database schemas. Vite dispatches the actual shared auth, team and workspace handlers. If services are not configured, the UI shows an explicit error; local development does not bypass authorization or silently use in-memory account records.
 
 ```bash
 npm test
 npm run typecheck
+npm run format:check
 npm run build
 ```
 
-Tests use Node's test runner with the `tsx` import hook. Domain tests cover rounding, invalid data, immutable reducers, sequential job transitions, repeated estimate approval, duplicate invoices and command previews with no writes.
+Tests use Node's test runner with the `tsx` import hook. Domain tests cover rounding, invalid data, immutable reducers, sequential job transitions, repeated estimate approval, duplicate invoices and command previews with no writes. Component-rendering tests verify viewers and staff cannot access approval/payment controls while managers and owners can.
 
 ## Production deployment
 
-Vercel detects the Vite frontend and `api/workspace.ts` Node function. Configure the environment variables listed in [.env.example](.env.example), apply the workspace schema supplied with the hosting setup, and deploy. `SUPABASE_PUBLISHABLE_KEY` is the public/publishable project key, not a service role key; row-level security gates access to a workspace capability.
+Vercel detects the Vite frontend and the `api/auth.ts`, `api/team.ts` and `api/workspace.ts` Node functions. Configure the environment variables listed in [.env.example](.env.example), apply the workspace schema supplied with the hosting setup, and deploy. `SUPABASE_PUBLISHABLE_KEY` is the public/publishable project key, not a service role key; row-level security gates access to a workspace capability.
 
-The backend requires the `portfolio_demo_workspaces` table and `portfolio_demo_cas` SQL RPC. The API wrapper in `api/_lib` supplies token validation, request-size limits, no-store responses, compare-and-swap persistence and bounded retries. See [architecture](docs/architecture.md) for boundaries and deployment requirements.
+The backend requires the supplied demo workspace schema plus the account workspace, membership, invitation and authorization migrations. The demo path uses the `portfolio_demo_workspaces` table and `portfolio_demo_cas` SQL RPC. The API wrapper in `api/_lib` supplies token validation, request-size limits, no-store responses, compare-and-swap persistence and bounded retries. See [architecture](docs/architecture.md) for boundaries and deployment requirements.
 
 ## Architecture
 
@@ -54,12 +70,12 @@ The backend requires the `portfolio_demo_workspaces` table and `portfolio_demo_c
 | `api/workspace.ts`      | FieldPilot configuration for the shared Node workspace adapter                      |
 | `api/_lib/workspace.ts` | HTTP boundary, method/auth/body validation and consistent errors                    |
 | `api/_lib/store.ts`     | Capability-scoped durable storage and optimistic concurrency                        |
-| `vite.config.ts`        | React tooling and clearly labelled development-only API                             |
+| `vite.config.ts`        | React tooling and development dispatch to the real shared API                       |
 | `tests/domain.test.ts`  | Real domain behavior tests                                                          |
 
 ## Deliberate limits
 
-This is a scoped MVP rather than a production business system. It has no account login, email delivery, file attachments, crew assignment editor, real payment processor, calendar integration or accounting integration. The workspace token is stored in this browser and grants access to that demo workspace. Do not put real customer data into it. Records are capped at 100 per category. Workspaces expire after seven days, and the client rotates its token after six days. Clearing browser storage also starts a fresh workspace.
+This is a scoped MVP rather than a production business system. Account login, workspace membership and backend role authorization are implemented. There is no business email delivery, file attachment service, crew assignment editor, real payment processor, calendar integration or accounting integration. Do not enter real customer data. Records are capped at 100 per category. Only Try Demo uses a browser-stored capability token: those demo workspaces expire after seven days and the client rotates its token after six days. Clearing browser storage starts a fresh demo, independently of account workspace data.
 
 All work is denominated in AUD. Tax defaults to 10% but is editable. The displayed tax and prices are demonstrations, not tax advice or trade quotations. No paid/free-plan conversion rates, generated testimonials or fabricated business metrics are shown.
 

@@ -1,6 +1,14 @@
 # Architecture and operational boundaries
 
-## Workspace identity
+## Account identity and authorization
+
+The shared AccessRoot gates sign in/signup, account workspace selection and the separate Try Demo entry. Account sessions use HttpOnly cookies. The client adds `X-Workspace-Mode: account`, `X-Workspace-Id` and `credentials: same-origin`; it never generates a demo bearer token in account mode. A 401 account response returns to the sign-in gate. Switching access scope remounts the app so records from different workspaces are not retained together.
+
+Shared auth/team/workspace handlers enforce membership and command permissions server side. Owner manages the team and business commands, editor (labelled Manager in FieldPilot) manages business commands, staff can only `move_job`, and viewer can only read. Document actions are hidden for unauthorized roles; other creation controls are disabled with a role explanation. Those controls complement the backend checks.
+
+Auth endpoints support sign in, signup, session lookup and logout. Team endpoints support workspace creation/listing, invitations, role changes and removal. Invitations do not trigger application email delivery. Signup email confirmation follows the Supabase project configuration.
+
+## Demo workspace identity
 
 The client generates 32 cryptographically random bytes, encoded as exactly 64 lowercase hexadecimal characters. It sends the token only in `Authorization: Bearer …`, never in a URL. The shared adapter forwards a scoped capability header to Postgres under a publishable key. Row-level security must permit access only to that capability's workspace and app.
 
@@ -27,7 +35,7 @@ Money is integer cents. Line extension is rounded to cents; tax is rounded once 
 
 ## Failure behavior
 
-The client updates displayed state only after a successful server response. Network and save failures remain visible. There is no automatic switch to browser storage. A failed save keeps its form open with a visible error. Development has an explicit in-memory backend and visible mode label; it does not ship into the production API.
+The client updates displayed state only after a successful server response. Network and save failures remain visible. There is no automatic switch to browser storage. A failed save keeps its form open with a visible error. Vite development loads and dispatches the real server handlers using server-only environment configuration. Missing services produce explicit errors; development never substitutes an in-memory account backend.
 
 ## Speech and commands
 
@@ -35,10 +43,11 @@ The grammar is `create|make|draft [a|an] <service> estimate for <full customer n
 
 ## Deployment checklist
 
-1. Vercel build: `npm run build`; output: `dist`; Node 22+.
-2. Configure `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` as server environment variables. Do not prefix them with `VITE_`.
-3. Apply the shared `portfolio_demo_workspaces` schema, RLS capability restrictions and `portfolio_demo_cas` RPC. The shared adapter expects apps `fieldpilot`, `webhooklab` and `payroute`.
-4. Verify GET persistence with a new capability, POST a valid command, reload using the same token, and verify a different capability sees separate seed records.
-5. Confirm invalid/duplicate commands return errors and no state change; inspect browser and function logs without exposing tokens.
+1. Apply both the demo workspace and account membership/authorization SQL migrations from the shared hosting setup.
+2. Vercel build: `npm run build`; output: `dist`; Node 22+.
+3. Configure `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and the app-specific `PORTFOLIO_BACKEND_KEY` as server environment variables. Do not prefix them with `VITE_`, expose backend credentials to the browser, or log session tokens.
+4. Apply the shared `portfolio_demo_workspaces` schema, RLS capability restrictions and `portfolio_demo_cas` RPC. The shared adapter expects apps `fieldpilot`, `webhooklab` and `payroute`.
+5. Verify GET persistence with a new capability, POST a valid command, reload using the same token, and verify a different capability sees separate seed records.
+6. Confirm invalid/duplicate commands return errors and no state change; inspect browser and function logs without exposing tokens.
 
-The app does not implement identity, role-based permissions, real payments, messaging, customer PII protection beyond demo isolation, or a backup/retention product.
+The app implements account sessions, workspace membership and role-based permissions. It does not implement real payments, business messaging, a backup product, account recovery UI or a production customer-data compliance program.
