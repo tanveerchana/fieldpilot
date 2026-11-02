@@ -1,6 +1,6 @@
 # Verification record
 
-Verified on 31 October 2026. This is an engineering portfolio demo using synthetic data.
+Hosted demo workflow reverified on 1 November 2026. Earlier local and database evidence retains its stated date. This is an engineering portfolio demo using synthetic data.
 
 ## Local quality checks
 
@@ -11,11 +11,27 @@ Verified on 31 October 2026. This is an engineering portfolio demo using synthet
 
 The checked-in GitHub Actions workflow runs installation, tests, types, formatting and a production build on pushes and pull requests. It does not deploy or receive production credentials.
 
-## Earlier hosted demo workflow check
+## Hosted demo workflow check — 1 November 2026
 
-In the hosted browser, a typed painting command produced an editable preview. Explicit confirmation saved an estimate; approval created a scheduled job. Starting and completing that job enabled invoice creation. Marking the invoice paid updated the ledger, and reloading preserved the paid status and derived revenue. The command preview did not save until confirmation.
+Tested the deployed application at https://fieldpilot-pied.vercel.app/ in a new cloud-browser tab. The page first showed the account gate with Log in, Create account and Try demo options. No account credentials were entered and no signup email was requested. Try demo opened the separate synthetic demo workspace.
 
-Live demo: https://fieldpilot-pied.vercel.app
+The complete workflow passed through visible controls:
+
+1. Entered `Create a painting estimate for Alex Morgan`. An editable preview proposed a $2,150.00 subtotal, $215.00 tax and $2,365.00 total. Canceling returned to the unchanged two-estimate awaiting-approval count.
+2. Reopened the preview, changed its title to `Hosted QA painting 2026-11-01` and changed the materials price to $375.50. The preview recalculated subtotal $2,175.50, tax $217.55 and total **$2,393.05**.
+3. Explicit confirmation created estimate `EST-bd03f45b`. Its document row showed Awaiting approval and the edited total.
+4. Approving that estimate created scheduled job `JOB-0c0610dc`. Starting and completing it moved the job through the corresponding board lanes.
+5. The completed job generated invoice `INV-12b0518c`, preserving the approved line items and **$2,393.05** total. Its job card then showed Invoiced rather than another invoice-creation action.
+6. Marking the invoice paid changed its ledger row to Paid. A full browser reload retained the approved estimate and paid invoice; reopening Invoices showed the same ID, amount and status.
+7. After reload, the overview showed three active jobs, two estimates awaiting approval, $2,035.00 outstanding and **$4,769.05** collected revenue ($2,376.00 existing paid seed invoice + $2,393.05 QA invoice).
+
+The current neutral desktop interface was visually inspected: aligned equal-height metric cards, white/slate surfaces, restrained blue actions, readable document rows and no ornamental hero. No blocking workflow or visible desktop layout defect was found. Microphone recognition and narrow-device behavior were not exercised in this run.
+
+`docs/preview.jpg` is the new clean overview screenshot captured after the persisted workflow. A separate screenshot of the paid invoice ledger was also captured for review. Both captures came directly from the hosted browser through its documented shared-file synchronization path.
+
+## Account browser verification limit
+
+The unauthenticated gate and Try demo path were verified in the browser. A full provider signup → confirmation email → login → account workspace journey remains **unverified**. The rollback-only hosted database role assertions below are separate evidence and must not be described as an end-to-end provider browser test.
 
 ## Account security verification
 
